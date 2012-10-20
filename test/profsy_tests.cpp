@@ -79,7 +79,7 @@ TEST_F( profsy, simple_scope_alloc )
 	EXPECT_EQ( 2, profsy_num_active_scopes() );
 
 	// swap frame to calculate "stuff"
-	wpprof_swap_frame();
+	profsy_swap_frame();
 
 	EXPECT_EQ( profsy_num_active_scopes(), 2u );
 
@@ -128,7 +128,7 @@ TEST_F( profsy, deep_hierarchy )
 	}
 
 	// swap frame to calculate "stuff"
-	wpprof_swap_frame();
+	profsy_swap_frame();
 
 	EXPECT_EQ( profsy_num_active_scopes(), 9u );
 
@@ -181,7 +181,7 @@ TEST_F( profsy, two_paths )
 	}
 
 	// swap frame to calculate "stuff"
-	wpprof_swap_frame();
+	profsy_swap_frame();
 
 	EXPECT_EQ( profsy_num_active_scopes(), 7u ); // root + parent_scope1 + parent_scope2 + 2 * scoped_func2 + 2 * scoped_func1
 

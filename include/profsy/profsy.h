@@ -62,7 +62,7 @@ void profsy_scope_leave( int entry_id, uint64_t time );
 /**
  *
  */
-void wpprof_swap_frame();
+void profsy_swap_frame();
 
 /**
  * max active scopes

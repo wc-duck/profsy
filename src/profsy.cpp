@@ -188,7 +188,7 @@ void profsy_scope_leave( int entry_index, uint64_t tick )
 	ctx->current = entry->parent;
 }
 
-void wpprof_swap_frame()
+void profsy_swap_frame()
 {
 	profsy_ctx_t ctx = g_profsy_ctx;
 	
