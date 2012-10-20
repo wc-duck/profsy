@@ -32,8 +32,11 @@ local settings = NewSettings() -- {}
 
 settings.cc.includes:Add("include")
 if family ~= "windows" then
+	-- TODO: HAXXOR!!!
+	settings.link.libpath:Add( '../shmup/local/debug/linux_x86_64' )
+
 	settings.cc.flags:Add( "-Wconversion", "-Wextra", "-Wall", "-Werror", "-Wstrict-aliasing=2" )
-	settings.link.libs:Add( 'gtest', 'pthread' )
+	settings.link.libs:Add( 'gtest', 'pthread', 'rt' )
 else
 	platform = "winx64"
 	
@@ -46,7 +49,7 @@ else
 	settings.cc.defines:Add("_ITERATOR_DEBUG_LEVEL=0")
 end
 
-local output_path = PathJoin( BUILD_PATH, PathJoin( platform, config ) )
+local output_path = PathJoin( BUILD_PATH, PathJoin( config, platform ) )
 local output_func = function(settings, path) return PathJoin(output_path, PathFilename(PathBase(path)) .. settings.config_ext) end
 settings.cc.Output = output_func
 settings.lib.Output = output_func
