@@ -137,7 +137,8 @@ int profsy_scope_enter( const char* name )
 			// alloc scope and link
 			e = profsy_alloc_entry( ctx, name );
 			// ASSERT( e != 0x0, "out of entries! scope: %s", name );
-			e->data.depth = current->data.depth + 1;
+
+			e->data.depth = (uint16_t)(current->data.depth + 1);
 			e->parent = current;
 
 			profsy_entry* parent = e->parent;
@@ -147,9 +148,19 @@ int profsy_scope_enter( const char* name )
 				parent = parent->parent;
 			}
 
-			// TODO: Should insert tail, to get them ordered in registering order!
-			e->next_child = current->children;
-			current->children = e;
+			// insert at tail to get order where scopes was registered.
+			if( current->children )
+			{
+				profsy_entry* next = current->children;
+				while( next->next_child )
+					next = next->next_child;
+				next->next_child = e;
+			}
+			else
+			{
+				e->next_child = 0x0;
+				current->children = e;
+			}
 		}
 	}
 
@@ -213,7 +224,7 @@ static void profsy_append_hierarchy( const profsy_entry* entry, const profsy_sco
 		profsy_append_hierarchy( child, child_scopes, num_child_scopes );
 }
 
-void profsy_get_scope_hierarchy( const profsy_scope_data** child_scopes, unsigned int num_child_scopes )
+void profsy_get_scope_hierarchy( const profsy_scope_data** child_scopes, unsigned int /*num_child_scopes*/ )
 {
 	profsy_ctx_t ctx = g_profsy_ctx;
 	
