@@ -12,10 +12,10 @@
 
 inline uint64_t profsy_get_tick()
 {
-#if defined(GNUC)
+#if defined(__GNUC__)
 		timespec start;
 		clock_gettime( CLOCK_MONOTONIC, &start );
-		return (uint64_t)start.tv_sec * (uint64)1000000000 + (uint64)start.tv_nsec;
+		return (uint64_t)start.tv_sec * (uint64_t)1000000000 + (uint64_t)start.tv_nsec;
 #elif defined(_MSC_VER)	
 		LARGE_INTEGER t;
 		QueryPerformanceCounter(&t);

@@ -26,7 +26,7 @@ TEST( basic, setup_teardown )
 
 struct profsy : public ::testing::Test
 {
-	static const unsigned int ENTRIES_MAX = 256;
+	static const unsigned int ENTRIES_MAX;
 
 	virtual void SetUp()
 {
@@ -57,6 +57,8 @@ struct profsy : public ::testing::Test
 
 	uint8_t* mem;
 };
+
+const unsigned int profsy::ENTRIES_MAX = 256;
 
 TEST_F( profsy, active_scopes_at_init )
 {
