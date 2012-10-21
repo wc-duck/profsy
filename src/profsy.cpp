@@ -92,10 +92,12 @@ void profsy_init( const profsy_init_params* params, uint8_t* mem )
 	g_profsy_ctx = ctx;
 }
 
-void profsy_shutdown()
+uint8_t* profsy_shutdown()
 {
 	// ASSERT( g_profiler != 0x0, "trying to shutdown uninitialized profiler!" );
+	uint8_t* mem = (uint8_t*)g_profsy_ctx;
 	g_profsy_ctx = 0x0;
+	return mem;
 }
 
 profsy_ctx_t profsy_global_ctx()

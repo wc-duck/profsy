@@ -40,7 +40,7 @@ void profsy_init( const profsy_init_params* params, uint8_t* mem );
 /**
  *
  */
-void profsy_shutdown();
+uint8_t* profsy_shutdown();
 
 /**
  *

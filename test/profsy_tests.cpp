@@ -17,7 +17,7 @@ TEST( basic, setup_teardown )
 	EXPECT_NE( (profsy_ctx_t)0, profsy_global_ctx() );
 	EXPECT_EQ( profsy_global_ctx(), profsy_global_ctx() );
 
-	profsy_shutdown();
+	EXPECT_EQ( mem, profsy_shutdown() );
 
 	EXPECT_EQ( (profsy_ctx_t)0, profsy_global_ctx() );
 
@@ -48,8 +48,7 @@ struct profsy : public ::testing::Test
 
 	virtual void TearDown()
 	{
-		profsy_shutdown();
-
+		EXPECT_EQ( mem, profsy_shutdown() );
 		EXPECT_EQ( (profsy_ctx_t)0, profsy_global_ctx() );
 
 		free( mem );
