@@ -57,7 +57,7 @@ int profsy_scope_enter( const char* name, uint64_t time );
 /**
  *
  */
-void profsy_scope_leave( int entry_id, uint64_t time );
+void profsy_scope_leave( int entry_index, uint64_t start, uint64_t end );
 
 /**
  *
@@ -67,8 +67,8 @@ void profsy_swap_frame();
 struct profsy_trace_entry
 {
 	uint64_t time_stamp;
-	uint32_t event : 1; // enter/leave
-	uint32_t scope : 31;
+	uint16_t event; // enter/leave
+	uint16_t scope;
 };
 
 /**
@@ -111,7 +111,7 @@ struct __profsy_scope
 		scope_id = profsy_scope_enter( scope_name, start );
 	}
 
-	~__profsy_scope() { profsy_scope_leave( scope_id, PROFSY_CUSTOM_TICK_FUNC() - start ); }
+	~__profsy_scope() { profsy_scope_leave( scope_id, start, PROFSY_CUSTOM_TICK_FUNC() ); }
 };
 
 #define   PROFSY_JOIN_MACRO_TOKENS(a,b)     __PROFSY_JOIN_MACRO_TOKENS_DO1(a,b)

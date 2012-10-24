@@ -288,6 +288,90 @@ TEST_F( profsy_4, multi_overflow )
 	s = hierarchy[4]; EXPECT_STREQ( s->name,  "overflow scope" ); EXPECT_EQ( s->calls, 2u ); // 2 calls, "s2->s5" and "s3->s5"
 }
 
+static void test_frame()
+{
+	{
+		PROFSY_SCOPE("s1");
+		{
+			PROFSY_SCOPE("s2");
+			{
+				PROFSY_SCOPE("s3");
+			}
+		}
+	}
+
+	profsy_swap_frame();
+}
+
+typedef profsy_<8> trace;
+TEST_F( trace, simple )
+{
+	// TODO: Trace should start on next swap_frame
+
+	static const int NUM_FRAMES = 3;
+	profsy_trace_entry trace[256];
+	profsy_trace_begin( trace, ARRAY_LENGTH(trace), NUM_FRAMES );
+
+	EXPECT_FALSE( profsy_is_tracing() );
+	profsy_swap_frame();
+
+	for( int i = 0; i < NUM_FRAMES; ++i )
+	{
+		EXPECT_TRUE( profsy_is_tracing() );
+		test_frame();
+	}
+	EXPECT_FALSE( profsy_is_tracing() );
+
+	uint64_t last_ts = 0;
+
+	for( int i = 0; i < NUM_FRAMES; ++i )
+	{
+		// 8 events per frame, enter/leave for root, s1, s2 and s3
+		EXPECT_EQ( trace[ i * 8 + 0 ].event, 0u ); // enter
+		EXPECT_EQ( trace[ i * 8 + 0 ].scope, 0 ); // TODO: lookup index of root-scope
+		EXPECT_GE( trace[ i * 8 + 0 ].time_stamp, last_ts );
+		last_ts  = trace[ i * 8 + 0 ].time_stamp;
+
+		EXPECT_EQ( trace[ i * 8 + 1 ].event, 0u ); // enter
+		EXPECT_EQ( trace[ i * 8 + 1 ].scope, 2 ); // TODO: lookup index of root->s1
+		EXPECT_GT( trace[ i * 8 + 1 ].time_stamp, last_ts );
+		last_ts  = trace[ i * 8 + 1 ].time_stamp;
+
+		EXPECT_EQ( trace[ i * 8 + 2 ].event, 0u ); // enter
+		EXPECT_EQ( trace[ i * 8 + 2 ].scope, 3 ); // TODO: lookup index of root->s1->s2
+		EXPECT_GT( trace[ i * 8 + 2 ].time_stamp, last_ts );
+		last_ts  = trace[ i * 8 + 2 ].time_stamp;
+
+		EXPECT_EQ( trace[ i * 8 + 3 ].event, 0u ); // enter
+		EXPECT_EQ( trace[ i * 8 + 3 ].scope, 4 ); // TODO: lookup index of root->s1->s2->s3
+		EXPECT_GT( trace[ i * 8 + 3 ].time_stamp, last_ts );
+		last_ts  = trace[ i * 8 + 3 ].time_stamp;
+
+		EXPECT_EQ( trace[ i * 8 + 4 ].event, 1u ); // leave
+		EXPECT_EQ( trace[ i * 8 + 4 ].scope, 4 ); // TODO: lookup index of root->s1->s2->s3
+		EXPECT_GT( trace[ i * 8 + 4 ].time_stamp, last_ts );
+		last_ts  = trace[ i * 8 + 4 ].time_stamp;
+
+		EXPECT_EQ( trace[ i * 8 + 5 ].event, 1u ); // leave
+		EXPECT_EQ( trace[ i * 8 + 5 ].scope, 3 ); // TODO: lookup index of root->s1->s2
+		EXPECT_GT( trace[ i * 8 + 5 ].time_stamp, last_ts );
+		last_ts  = trace[ i * 8 + 5 ].time_stamp;
+
+		EXPECT_EQ( trace[ i * 8 + 6 ].event, 1u ); // leave
+		EXPECT_EQ( trace[ i * 8 + 6 ].scope, 2 ); // TODO: lookup index of root->s1
+		EXPECT_GT( trace[ i * 8 + 6 ].time_stamp, last_ts );
+		last_ts  = trace[ i * 8 + 6 ].time_stamp;
+
+		EXPECT_EQ( trace[ i * 8 + 7 ].event, 1u ); // leave
+		EXPECT_EQ( trace[ i * 8 + 7 ].scope, 0 ); // TODO: lookup index of root-scope
+		EXPECT_GT( trace[ i * 8 + 7 ].time_stamp, last_ts );
+		last_ts  = trace[ i * 8 + 7 ].time_stamp;
+	}
+
+	EXPECT_EQ( trace[ NUM_FRAMES * 8 + 1 ].event, 3u ); // finnish
+
+	// check end of trace-marker
+}
 
 int main( int argc, char** argv )
 {

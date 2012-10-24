@@ -33,6 +33,7 @@ struct profsy_ctx
 
 	uint64_t frame_start;
 
+	profsy_trace_entry* trace_to_activate;
 	profsy_trace_entry* active_trace;
 	unsigned int max_active_trace;
 	unsigned int num_active_trace;
@@ -102,6 +103,7 @@ void profsy_init( const profsy_init_params* params, uint8_t* in_mem )
 	ctx->current  = root;
 
 	ctx->active_trace       = 0x0;
+	ctx->trace_to_activate  = 0x0;
 	ctx->max_active_trace   = 0;
 	ctx->num_active_trace   = 0;
 	ctx->active_trace_frame = 0;
@@ -208,7 +210,7 @@ int profsy_scope_enter( const char* name, uint64_t tick )
 			profsy_trace_entry* te = ctx->active_trace + next_trace;
 			te->time_stamp = tick;
 			te->event      = 0; // enter...
-			te->scope      = scope_id;
+			te->scope      = (uint16_t)scope_id;
 		}
 	}
 
@@ -216,7 +218,7 @@ int profsy_scope_enter( const char* name, uint64_t tick )
 	return scope_id;
 }
 
-void profsy_scope_leave( int entry_index, uint64_t tick )
+void profsy_scope_leave( int entry_index, uint64_t start, uint64_t end )
 {
 	profsy_ctx_t ctx = g_profsy_ctx;
 
@@ -225,9 +227,11 @@ void profsy_scope_leave( int entry_index, uint64_t tick )
 
 	profsy_entry* entry = ctx->entries + entry_index;
 
+	uint64_t diff = end - start;
+
 	entry->calls += 1;
-	entry->time  += tick;
-	entry->parent->child_time += tick;
+	entry->time  += diff;
+	entry->parent->child_time += diff;
 
 	ctx->current = entry->parent;
 
@@ -238,9 +242,9 @@ void profsy_scope_leave( int entry_index, uint64_t tick )
 		if( next_trace <= ctx->max_active_trace )
 		{
 			profsy_trace_entry* te = ctx->active_trace + next_trace;
-			te->time_stamp = tick;
+			te->time_stamp = end;
 			te->event      = 1; // leave...
-			te->scope      = entry_index;
+			te->scope      = (uint16_t)entry_index;
 		}
 	}
 }
@@ -265,16 +269,63 @@ void profsy_swap_frame()
 		e->calls = e->time = e->child_time = 0;
 	}
 
+	ctx->frame_start = PROFSY_CUSTOM_TICK_FUNC();
+
 	// if is tracing...
 	if( ctx->active_trace != 0x0 )
 	{
-		++ctx->active_trace_frame;
-		
-		if( ctx->active_trace_frame >= ctx->num_trace_frames )
-			ctx->active_trace = 0x0; // Trace is now done!
+		// report leave root
+		unsigned int next_trace = ctx->num_active_trace++;
+		if( next_trace <= ctx->max_active_trace )
+		{
+			profsy_trace_entry* te = ctx->active_trace + next_trace;
+			te->time_stamp = ctx->frame_start;
+			te->event      = 1; // leave...
+			te->scope      = (uint16_t)0;
+		}
 	}
 
-	ctx->frame_start = PROFSY_CUSTOM_TICK_FUNC();
+	// if should start trace
+	if( ctx->trace_to_activate != 0x0 )
+	{
+		ctx->active_trace = ctx->trace_to_activate;
+		ctx->trace_to_activate = 0x0;
+	}
+
+	// if is tracing...
+	if( ctx->active_trace != 0x0 )
+	{
+		// report enter root
+		unsigned int next_trace = ctx->num_active_trace++;
+		if( next_trace <= ctx->max_active_trace )
+		{
+			profsy_trace_entry* te = ctx->active_trace + next_trace;
+			te->time_stamp = ctx->frame_start;
+			te->event      = 0; // enter...
+			te->scope      = (uint16_t)0;
+		}
+
+		++ctx->active_trace_frame;
+		
+		if( ctx->active_trace_frame > ctx->num_trace_frames )
+		{
+			unsigned int next_trace = ctx->num_active_trace++;
+			uint16_t event = 3; // trace_finnished
+			if( next_trace >= ctx->max_active_trace )
+			{
+				next_trace = ctx->max_active_trace - 1;
+				event = 4; // trace overflow
+			}
+
+			profsy_trace_entry* te = ctx->active_trace + next_trace;
+			te->time_stamp = ctx->frame_start;
+			te->event      = event;
+			te->scope      = (uint16_t)0;
+
+
+			ctx->active_trace = 0x0; // Trace is now done!
+		}
+	}
 }
 
 void profsy_trace_begin( profsy_trace_entry* entries, unsigned int num_entries, unsigned int frames_to_capture )
@@ -284,11 +335,11 @@ void profsy_trace_begin( profsy_trace_entry* entries, unsigned int num_entries, 
 		return;
 
 	// this will reset trace one is already running.
-	ctx->active_trace       = entries;
+	ctx->trace_to_activate  = entries;
 	ctx->max_active_trace   = num_entries;
 	ctx->num_active_trace   = 0;
 	ctx->active_trace_frame = 0;
-	ctx->num_trace_frames   = 0;
+	ctx->num_trace_frames   = frames_to_capture;
 }
 
 bool profsy_is_tracing()
