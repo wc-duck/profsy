@@ -52,7 +52,7 @@ profsy_ctx_t profsy_global_ctx();
 /**
  *
  */
-int profsy_scope_enter( const char* name );
+int profsy_scope_enter( const char* name, uint64_t time );
 
 /**
  *
@@ -63,6 +63,25 @@ void profsy_scope_leave( int entry_id, uint64_t time );
  *
  */
 void profsy_swap_frame();
+
+struct profsy_trace_entry
+{
+	uint64_t time_stamp;
+	uint32_t event : 1; // enter/leave
+	uint32_t scope : 31;
+};
+
+/**
+ * 
+ */
+void profsy_trace_begin( profsy_trace_entry* entries, 
+						 unsigned int        num_entries, 
+						 unsigned int        frames_to_capture );
+
+/**
+ *
+ */
+bool profsy_is_tracing();
 
 /**
  * max active scopes
@@ -87,9 +106,10 @@ struct __profsy_scope
 	uint64_t start;
 
 	__profsy_scope( const char* scope_name )
-		: scope_id( profsy_scope_enter( scope_name ) )
-		, start( PROFSY_CUSTOM_TICK_FUNC() )
-	{}
+		: start( PROFSY_CUSTOM_TICK_FUNC() )
+	{
+		scope_id = profsy_scope_enter( scope_name, start );
+	}
 
 	~__profsy_scope() { profsy_scope_leave( scope_id, PROFSY_CUSTOM_TICK_FUNC() - start ); }
 };
