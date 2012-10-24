@@ -21,6 +21,8 @@ struct profsy_entry
 
 struct profsy_ctx
 {
+	uint8_t* mem;
+
 	profsy_entry* entries;
 	unsigned int  entries_used;
 	unsigned int  entries_max;
@@ -65,17 +67,18 @@ size_t profsy_calc_ctx_mem_usage( const profsy_init_params* params )
 	return needed_mem;
 }
 
-void profsy_init( const profsy_init_params* params, uint8_t* mem )
+void profsy_init( const profsy_init_params* params, uint8_t* in_mem )
 {
 	// TODO: check that profiler is not already initialized
 
 	// Align memory!
-	mem = (uint8_t*)ALIGN_UP( mem, 16 );
+	uint8_t* mem = (uint8_t*)ALIGN_UP( in_mem, 16 );
 	
 	profsy_ctx* ctx = ( profsy_ctx* )mem;
 	mem += sizeof( profsy_ctx );
 	mem  = (uint8_t*)ALIGN_UP( mem, 16 );
 	
+	ctx->mem          = in_mem;
 	ctx->entries      = ( profsy_entry* )mem;
 	ctx->entries_used = 0;
 	ctx->entries_max  = params->entries_max + PROFSY_BUILTIN_SCOPES;
@@ -100,7 +103,7 @@ void profsy_init( const profsy_init_params* params, uint8_t* mem )
 uint8_t* profsy_shutdown()
 {
 	// ASSERT( g_profiler != 0x0, "trying to shutdown uninitialized profiler!" );
-	uint8_t* mem = (uint8_t*)g_profsy_ctx;
+	uint8_t* mem = g_profsy_ctx->mem;
 	g_profsy_ctx = 0x0;
 	return mem;
 }
