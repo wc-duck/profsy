@@ -4,6 +4,13 @@
 
 #define ARRAY_LENGTH(a) (sizeof(a)/sizeof(a[0]))
 
+#if defined( _MSC_VER )
+	#include <windows.h>
+	#define SLEEP( ms ) SleepEx( ms, false )
+#else
+	#define SLEEP( ms ) sleep( ms )
+#endif
+
 TEST( basic, setup_teardown )
 {
 	profsy_init_params ip;
@@ -74,7 +81,7 @@ TEST_F( profsy, simple_scope_alloc )
 {
 	{
 		PROFSY_SCOPE( "test-scope1" );
-		for( int i = 0; i < 1000; ++i ); // replace with sleep()
+		SLEEP(1);
 	}
 	// check that only root, overflow-scope + new one is allocated
 	EXPECT_EQ( 3, profsy_num_active_scopes() );
@@ -118,14 +125,14 @@ TEST_F( profsy, deep_hierarchy )
 	};
 
 	{
-		PROFSY_SCOPE( SCOPE_NAMES[1] ); for( int i = 0; i < 1000; ++i ); // replace with sleep()
-		PROFSY_SCOPE( SCOPE_NAMES[2] ); for( int i = 0; i < 1000; ++i ); // replace with sleep()
-		PROFSY_SCOPE( SCOPE_NAMES[3] ); for( int i = 0; i < 1000; ++i ); // replace with sleep()
-		PROFSY_SCOPE( SCOPE_NAMES[4] ); for( int i = 0; i < 1000; ++i ); // replace with sleep()
-		PROFSY_SCOPE( SCOPE_NAMES[5] ); for( int i = 0; i < 1000; ++i ); // replace with sleep()
-		PROFSY_SCOPE( SCOPE_NAMES[6] ); for( int i = 0; i < 1000; ++i ); // replace with sleep()
-		PROFSY_SCOPE( SCOPE_NAMES[7] ); for( int i = 0; i < 1000; ++i ); // replace with sleep()
-		PROFSY_SCOPE( SCOPE_NAMES[8] ); for( int i = 0; i < 1000; ++i ); // replace with sleep()
+		PROFSY_SCOPE( SCOPE_NAMES[1] ); SLEEP(1);
+		PROFSY_SCOPE( SCOPE_NAMES[2] ); SLEEP(1);
+		PROFSY_SCOPE( SCOPE_NAMES[3] ); SLEEP(1);
+		PROFSY_SCOPE( SCOPE_NAMES[4] ); SLEEP(1);
+		PROFSY_SCOPE( SCOPE_NAMES[5] ); SLEEP(1);
+		PROFSY_SCOPE( SCOPE_NAMES[6] ); SLEEP(1);
+		PROFSY_SCOPE( SCOPE_NAMES[7] ); SLEEP(1);
+		PROFSY_SCOPE( SCOPE_NAMES[8] ); SLEEP(1);
 	}
 
 	// swap frame to calculate "stuff"
@@ -156,13 +163,13 @@ TEST_F( profsy, deep_hierarchy )
 static void scoped_func1()
 {
 	PROFSY_SCOPE( "scoped_func1" );
-	for( int i = 0; i < 1000; ++i ); // replace with sleep()
+	SLEEP(1);
 }
 
 static void scoped_func2()
 {
 	PROFSY_SCOPE( "scoped_func2" );
-	for( int i = 0; i < 1000; ++i ); // replace with sleep()
+	SLEEP(1);
 }
 
 TEST_F( profsy, two_paths )
@@ -292,10 +299,15 @@ static void test_frame()
 {
 	{
 		PROFSY_SCOPE("s1");
+		SLEEP(10);
+
 		{
 			PROFSY_SCOPE("s2");
+			SLEEP(10);
+
 			{
 				PROFSY_SCOPE("s3");
+				SLEEP(10);
 			}
 		}
 	}
@@ -324,48 +336,38 @@ TEST_F( trace, simple )
 
 	uint64_t last_ts = 0;
 
+	// check all timestamps
 	for( int i = 0; i < NUM_FRAMES; ++i )
 	{
-		// 8 events per frame, enter/leave for root, s1, s2 and s3
-		EXPECT_EQ( trace[ i * 8 + 0 ].event, 0u ); // enter
-		EXPECT_EQ( trace[ i * 8 + 0 ].scope, 0 ); // TODO: lookup index of root-scope
-		EXPECT_GE( trace[ i * 8 + 0 ].time_stamp, last_ts );
-		last_ts  = trace[ i * 8 + 0 ].time_stamp;
+		profsy_trace_entry* e = trace + ( i * 8 + 0 );
+		EXPECT_GE( e->time_stamp, last_ts );
+		last_ts  = e->time_stamp;
+	}
 
-		EXPECT_EQ( trace[ i * 8 + 1 ].event, 0u ); // enter
-		EXPECT_EQ( trace[ i * 8 + 1 ].scope, 2 ); // TODO: lookup index of root->s1
-		EXPECT_GT( trace[ i * 8 + 1 ].time_stamp, last_ts );
-		last_ts  = trace[ i * 8 + 1 ].time_stamp;
+	struct
+	{
+		uint16_t event;
+		uint16_t scope;
+	} expect[] = {
+		{ 0, 0 }, // TODO: lookup index of root
+		{ 0, 2 }, // TODO: lookup index of root->s1
+		{ 0, 3 }, // TODO: lookup index of root->s1->s2
+		{ 0, 4 }, // TODO: lookup index of root->s1->s2->s3
 
-		EXPECT_EQ( trace[ i * 8 + 2 ].event, 0u ); // enter
-		EXPECT_EQ( trace[ i * 8 + 2 ].scope, 3 ); // TODO: lookup index of root->s1->s2
-		EXPECT_GT( trace[ i * 8 + 2 ].time_stamp, last_ts );
-		last_ts  = trace[ i * 8 + 2 ].time_stamp;
+		{ 1, 4 }, // TODO: lookup index of root->s1->s2->s3
+		{ 1, 3 }, // TODO: lookup index of root->s1->s2
+		{ 1, 2 }, // TODO: lookup index of root->s1
+		{ 1, 0 }, // TODO: lookup index of root
+	};
 
-		EXPECT_EQ( trace[ i * 8 + 3 ].event, 0u ); // enter
-		EXPECT_EQ( trace[ i * 8 + 3 ].scope, 4 ); // TODO: lookup index of root->s1->s2->s3
-		EXPECT_GT( trace[ i * 8 + 3 ].time_stamp, last_ts );
-		last_ts  = trace[ i * 8 + 3 ].time_stamp;
-
-		EXPECT_EQ( trace[ i * 8 + 4 ].event, 1u ); // leave
-		EXPECT_EQ( trace[ i * 8 + 4 ].scope, 4 ); // TODO: lookup index of root->s1->s2->s3
-		EXPECT_GT( trace[ i * 8 + 4 ].time_stamp, last_ts );
-		last_ts  = trace[ i * 8 + 4 ].time_stamp;
-
-		EXPECT_EQ( trace[ i * 8 + 5 ].event, 1u ); // leave
-		EXPECT_EQ( trace[ i * 8 + 5 ].scope, 3 ); // TODO: lookup index of root->s1->s2
-		EXPECT_GT( trace[ i * 8 + 5 ].time_stamp, last_ts );
-		last_ts  = trace[ i * 8 + 5 ].time_stamp;
-
-		EXPECT_EQ( trace[ i * 8 + 6 ].event, 1u ); // leave
-		EXPECT_EQ( trace[ i * 8 + 6 ].scope, 2 ); // TODO: lookup index of root->s1
-		EXPECT_GT( trace[ i * 8 + 6 ].time_stamp, last_ts );
-		last_ts  = trace[ i * 8 + 6 ].time_stamp;
-
-		EXPECT_EQ( trace[ i * 8 + 7 ].event, 1u ); // leave
-		EXPECT_EQ( trace[ i * 8 + 7 ].scope, 0 ); // TODO: lookup index of root-scope
-		EXPECT_GT( trace[ i * 8 + 7 ].time_stamp, last_ts );
-		last_ts  = trace[ i * 8 + 7 ].time_stamp;
+	for( int i = 0; i < NUM_FRAMES; ++i )
+	{
+		for( int j = 0; j < ARRAY_LENGTH( expect ); ++j )
+		{
+			profsy_trace_entry* e = trace + ( i * 8 + j );
+			EXPECT_EQ( e->event, expect[j].event );
+			EXPECT_EQ( e->scope, expect[j].scope );
+		}
 	}
 
 	EXPECT_EQ( trace[ NUM_FRAMES * 8 + 1 ].event, 3u ); // finnish
