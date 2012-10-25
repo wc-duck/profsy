@@ -137,7 +137,39 @@ static profsy_entry* profsy_get_child_scope( profsy_ctx* ctx, profsy_entry* pare
 	return e;
 }
 
-#include <stdio.h>
+static void profsy_trace_add( profsy_ctx* ctx, uint64_t tick, uint16_t event, uint16_t scope_id )
+{
+	if( ctx->active_trace == 0x0 )
+		return; // ... no active trace!
+
+	unsigned int next_trace = ctx->num_active_trace++;
+	if( next_trace > ctx->max_active_trace )
+		return; // ... no entries in trace-buffer left
+
+	profsy_trace_entry* te = ctx->active_trace + next_trace;
+	te->time_stamp = tick;
+	te->event      = event;
+	te->scope      = scope_id;
+}
+
+static void profsy_trace_close( profsy_ctx* ctx, uint64_t tick )
+{
+	unsigned int next_trace = ctx->num_active_trace++;
+	uint16_t event = PROFSY_TRACE_EVENT_END;
+	if( next_trace >= ctx->max_active_trace )
+	{
+		next_trace = ctx->max_active_trace - 1;
+		event = PROFSY_TRACE_EVENT_OVERFLOW;
+	}
+
+	profsy_trace_entry* te = ctx->active_trace + next_trace;
+	te->time_stamp = tick;
+	te->event      = event;
+	te->scope      = (uint16_t)0;
+
+
+	ctx->active_trace = 0x0; // Trace is now done!
+}
 
 int profsy_scope_enter( const char* name, uint64_t tick )
 {
@@ -179,8 +211,6 @@ int profsy_scope_enter( const char* name, uint64_t tick )
 
 			if( e != ctx->overflow )
 			{
-				// return (int)( e - ctx->entries );
-
 				e->data.depth = (uint16_t)(current->data.depth + 1);
 				e->parent = current;
 
@@ -201,31 +231,21 @@ int profsy_scope_enter( const char* name, uint64_t tick )
 
 	int scope_id = (int)(e - ctx->entries);
 
-	// if is tracing...
-	if( ctx->active_trace != 0x0 )
-	{
-		unsigned int next_trace = ctx->num_active_trace++;
-		if( next_trace <= ctx->max_active_trace )
-		{
-			profsy_trace_entry* te = ctx->active_trace + next_trace;
-			te->time_stamp = tick;
-			te->event      = 0; // enter...
-			te->scope      = (uint16_t)scope_id;
-		}
-	}
+	// ... add trace if tracing
+	profsy_trace_add( ctx, tick, PROFSY_TRACE_EVENT_ENTER, (uint16_t)scope_id );
 
 	// TODO: break of to function
 	return scope_id;
 }
 
-void profsy_scope_leave( int entry_index, uint64_t start, uint64_t end )
+void profsy_scope_leave( int scope_id, uint64_t start, uint64_t end )
 {
 	profsy_ctx_t ctx = g_profsy_ctx;
 
 	if( ctx == 0x0 )
 		return;
 
-	profsy_entry* entry = ctx->entries + entry_index;
+	profsy_entry* entry = ctx->entries + scope_id;
 
 	uint64_t diff = end - start;
 
@@ -235,18 +255,8 @@ void profsy_scope_leave( int entry_index, uint64_t start, uint64_t end )
 
 	ctx->current = entry->parent;
 
-	// if is tracing...
-	if( ctx->active_trace != 0x0 )
-	{
-		unsigned int next_trace = ctx->num_active_trace++;
-		if( next_trace <= ctx->max_active_trace )
-		{
-			profsy_trace_entry* te = ctx->active_trace + next_trace;
-			te->time_stamp = end;
-			te->event      = 1; // leave...
-			te->scope      = (uint16_t)entry_index;
-		}
-	}
+	// ... add trace if tracing
+	profsy_trace_add( ctx, end, PROFSY_TRACE_EVENT_LEAVE, (uint16_t)scope_id );
 }
 
 void profsy_swap_frame()
@@ -271,19 +281,8 @@ void profsy_swap_frame()
 
 	ctx->frame_start = PROFSY_CUSTOM_TICK_FUNC();
 
-	// if is tracing...
-	if( ctx->active_trace != 0x0 )
-	{
-		// report leave root
-		unsigned int next_trace = ctx->num_active_trace++;
-		if( next_trace <= ctx->max_active_trace )
-		{
-			profsy_trace_entry* te = ctx->active_trace + next_trace;
-			te->time_stamp = ctx->frame_start;
-			te->event      = 1; // leave...
-			te->scope      = (uint16_t)0;
-		}
-	}
+	// ... add trace if tracing
+	profsy_trace_add( ctx, ctx->frame_start, PROFSY_TRACE_EVENT_LEAVE, (uint16_t)0 );
 
 	// if should start trace
 	if( ctx->trace_to_activate != 0x0 )
@@ -292,39 +291,15 @@ void profsy_swap_frame()
 		ctx->trace_to_activate = 0x0;
 	}
 
+	// ... add trace if tracing
+	profsy_trace_add( ctx, ctx->frame_start, PROFSY_TRACE_EVENT_ENTER, (uint16_t)0 );
+	
 	// if is tracing...
 	if( ctx->active_trace != 0x0 )
 	{
-		// report enter root
-		unsigned int next_trace = ctx->num_active_trace++;
-		if( next_trace <= ctx->max_active_trace )
-		{
-			profsy_trace_entry* te = ctx->active_trace + next_trace;
-			te->time_stamp = ctx->frame_start;
-			te->event      = 0; // enter...
-			te->scope      = (uint16_t)0;
-		}
-
 		++ctx->active_trace_frame;
-		
 		if( ctx->active_trace_frame > ctx->num_trace_frames )
-		{
-			unsigned int next_trace = ctx->num_active_trace++;
-			uint16_t event = 3; // trace_finnished
-			if( next_trace >= ctx->max_active_trace )
-			{
-				next_trace = ctx->max_active_trace - 1;
-				event = 4; // trace overflow
-			}
-
-			profsy_trace_entry* te = ctx->active_trace + next_trace;
-			te->time_stamp = ctx->frame_start;
-			te->event      = event;
-			te->scope      = (uint16_t)0;
-
-
-			ctx->active_trace = 0x0; // Trace is now done!
-		}
+			profsy_trace_close( ctx, ctx->frame_start );
 	}
 }
 

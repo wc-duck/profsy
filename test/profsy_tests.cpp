@@ -349,15 +349,15 @@ TEST_F( trace, simple )
 		uint16_t event;
 		uint16_t scope;
 	} expect[] = {
-		{ 0, 0 }, // TODO: lookup index of root
-		{ 0, 2 }, // TODO: lookup index of root->s1
-		{ 0, 3 }, // TODO: lookup index of root->s1->s2
-		{ 0, 4 }, // TODO: lookup index of root->s1->s2->s3
+		{ PROFSY_TRACE_EVENT_ENTER, 0 }, // TODO: lookup index of root
+		{ PROFSY_TRACE_EVENT_ENTER, 2 }, // TODO: lookup index of root->s1
+		{ PROFSY_TRACE_EVENT_ENTER, 3 }, // TODO: lookup index of root->s1->s2
+		{ PROFSY_TRACE_EVENT_ENTER, 4 }, // TODO: lookup index of root->s1->s2->s3
 
-		{ 1, 4 }, // TODO: lookup index of root->s1->s2->s3
-		{ 1, 3 }, // TODO: lookup index of root->s1->s2
-		{ 1, 2 }, // TODO: lookup index of root->s1
-		{ 1, 0 }, // TODO: lookup index of root
+		{ PROFSY_TRACE_EVENT_LEAVE, 4 }, // TODO: lookup index of root->s1->s2->s3
+		{ PROFSY_TRACE_EVENT_LEAVE, 3 }, // TODO: lookup index of root->s1->s2
+		{ PROFSY_TRACE_EVENT_LEAVE, 2 }, // TODO: lookup index of root->s1
+		{ PROFSY_TRACE_EVENT_LEAVE, 0 }, // TODO: lookup index of root
 	};
 
 	for( int i = 0; i < NUM_FRAMES; ++i )
@@ -370,7 +370,7 @@ TEST_F( trace, simple )
 		}
 	}
 
-	EXPECT_EQ( trace[ NUM_FRAMES * 8 + 1 ].event, 3u ); // finnish
+	EXPECT_EQ( trace[ NUM_FRAMES * 8 + 1 ].event, PROFSY_TRACE_EVENT_END );
 
 	// check end of trace-marker
 }

@@ -14,6 +14,18 @@ struct profsy_init_params
 	unsigned int entries_max;
 };
 
+static const uint16_t PROFSY_TRACE_EVENT_ENTER    = 0;
+static const uint16_t PROFSY_TRACE_EVENT_LEAVE    = 1;
+static const uint16_t PROFSY_TRACE_EVENT_END      = 2;
+static const uint16_t PROFSY_TRACE_EVENT_OVERFLOW = 3;
+
+struct profsy_trace_entry
+{
+	uint64_t time_stamp;
+	uint16_t event;
+	uint16_t scope;
+};
+
 typedef struct profsy_ctx* profsy_ctx_t;
 
 struct profsy_scope_data
@@ -57,19 +69,12 @@ int profsy_scope_enter( const char* name, uint64_t time );
 /**
  *
  */
-void profsy_scope_leave( int entry_index, uint64_t start, uint64_t end );
+void profsy_scope_leave( int scope_id, uint64_t start, uint64_t end );
 
 /**
  *
  */
 void profsy_swap_frame();
-
-struct profsy_trace_entry
-{
-	uint64_t time_stamp;
-	uint16_t event; // enter/leave
-	uint16_t scope;
-};
 
 /**
  * 
