@@ -375,6 +375,24 @@ TEST_F( trace, simple )
 	// check end of trace-marker
 }
 
+TEST_F( trace, overflow )
+{
+	profsy_trace_entry trace[4];
+	profsy_trace_begin( trace, ARRAY_LENGTH(trace), 2 );
+
+	EXPECT_FALSE( profsy_is_tracing() );
+	profsy_swap_frame();
+
+	EXPECT_TRUE( profsy_is_tracing() );
+
+	test_frame();
+	profsy_swap_frame();
+
+	EXPECT_FALSE( profsy_is_tracing() ); // this should be false after one frame since it would have overflowed already
+
+	EXPECT_EQ( PROFSY_TRACE_EVENT_OVERFLOW, trace[ ARRAY_LENGTH(trace) - 1 ].event );
+}
+
 int main( int argc, char** argv )
 {
 	::testing::InitGoogleTest(&argc, argv);
