@@ -99,6 +99,11 @@ unsigned int profsy_max_active_scopes();
 unsigned int profsy_num_active_scopes();
 
 /**
+ *
+ */
+int profsy_find_scope( const char* scope_path );
+
+/**
  * ret hierachy, constant between calls if active scopes has not changed. Can only go up!
  */
 void profsy_get_scope_hierarchy( const profsy_scope_data** child_scopes, unsigned int num_child_scopes );

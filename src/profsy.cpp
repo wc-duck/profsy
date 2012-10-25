@@ -326,6 +326,42 @@ bool profsy_is_tracing()
 unsigned int profsy_max_active_scopes() { return g_profsy_ctx == 0x0 ? 0 : g_profsy_ctx->entries_max; }
 unsigned int profsy_num_active_scopes() { return g_profsy_ctx == 0x0 ? 0 : g_profsy_ctx->entries_used; }
 
+int profsy_find_scope( const char* scope_path )
+{
+	profsy_ctx_t ctx = g_profsy_ctx;
+	if( ctx == 0x0 )
+		return -1;
+
+	if( *scope_path == '\0' )
+		return (int)( ctx->root - ctx->entries );
+
+	const char* search = scope_path;
+	const char* end    = search + strlen( search );
+
+	profsy_entry* e = ctx->root;
+
+	while( search < end )
+	{
+		const char* dot = strchr( search, '.' );
+		if( dot == 0x0 )
+			dot = end;
+
+		profsy_entry* found = 0x0;
+
+		for( profsy_entry* child = e->children; child != 0x0 && found == 0x0; child = child->next_child )
+			if( strncmp( child->data.name, search, (size_t)( dot - search ) ) == 0 )
+				found = child;
+
+		if( found == 0x0 )
+			return -1;
+
+		e = found;
+		search = dot + 1;
+	}
+
+	return (int)( e - ctx->entries );
+}
+
 static void profsy_append_hierarchy( const profsy_entry* entry, const profsy_scope_data** child_scopes, unsigned int* num_child_scopes )
 {
 	child_scopes[(*num_child_scopes)++] = &entry->data;

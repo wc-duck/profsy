@@ -227,6 +227,11 @@ TEST_F( profsy, two_paths )
 	EXPECT_EQ   ( s->depth, 2u );
 }
 
+TEST_F( profsy, find_scope_non_exist )
+{
+	EXPECT_EQ( -1, profsy_find_scope( "bloo.blaaa" ) ); // non existing scope!
+}
+
 TEST_F( profsy_4, out_of_resources_is_tracked )
 {
 	{
@@ -344,20 +349,30 @@ TEST_F( trace, simple )
 		last_ts  = e->time_stamp;
 	}
 
+	uint16_t root_scope_id = (uint16_t)profsy_find_scope( "" );
+	uint16_t s1_scope_id   = (uint16_t)profsy_find_scope( "s1" );
+	uint16_t s2_scope_id   = (uint16_t)profsy_find_scope( "s1.s2" );
+	uint16_t s3_scope_id   = (uint16_t)profsy_find_scope( "s1.s2.s3" );
+
+	EXPECT_EQ( 0u, root_scope_id );
+	EXPECT_EQ( 2u, s1_scope_id );
+	EXPECT_EQ( 3u, s2_scope_id );
+	EXPECT_EQ( 4u, s3_scope_id );
+
 	struct
 	{
 		uint16_t event;
 		uint16_t scope;
 	} expect[] = {
-		{ PROFSY_TRACE_EVENT_ENTER, 0 }, // TODO: lookup index of root
-		{ PROFSY_TRACE_EVENT_ENTER, 2 }, // TODO: lookup index of root->s1
-		{ PROFSY_TRACE_EVENT_ENTER, 3 }, // TODO: lookup index of root->s1->s2
-		{ PROFSY_TRACE_EVENT_ENTER, 4 }, // TODO: lookup index of root->s1->s2->s3
+		{ PROFSY_TRACE_EVENT_ENTER, root_scope_id },
+		{ PROFSY_TRACE_EVENT_ENTER, s1_scope_id   },
+		{ PROFSY_TRACE_EVENT_ENTER, s2_scope_id   },
+		{ PROFSY_TRACE_EVENT_ENTER, s3_scope_id   },
 
-		{ PROFSY_TRACE_EVENT_LEAVE, 4 }, // TODO: lookup index of root->s1->s2->s3
-		{ PROFSY_TRACE_EVENT_LEAVE, 3 }, // TODO: lookup index of root->s1->s2
-		{ PROFSY_TRACE_EVENT_LEAVE, 2 }, // TODO: lookup index of root->s1
-		{ PROFSY_TRACE_EVENT_LEAVE, 0 }, // TODO: lookup index of root
+		{ PROFSY_TRACE_EVENT_LEAVE, s3_scope_id   },
+		{ PROFSY_TRACE_EVENT_LEAVE, s2_scope_id   },
+		{ PROFSY_TRACE_EVENT_LEAVE, s1_scope_id   },
+		{ PROFSY_TRACE_EVENT_LEAVE, root_scope_id },
 	};
 
 	for( int i = 0; i < NUM_FRAMES; ++i )
@@ -370,9 +385,7 @@ TEST_F( trace, simple )
 		}
 	}
 
-	EXPECT_EQ( trace[ NUM_FRAMES * 8 + 1 ].event, PROFSY_TRACE_EVENT_END );
-
-	// check end of trace-marker
+	EXPECT_EQ( trace[ NUM_FRAMES * 8 + 1 ].event, PROFSY_TRACE_EVENT_END ); // check end of trace-marker
 }
 
 TEST_F( trace, overflow )
