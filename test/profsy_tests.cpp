@@ -8,7 +8,7 @@
 	#include <windows.h>
 	#define SLEEP( ms ) SleepEx( ms, false )
 #else
-	#define SLEEP( ms ) sleep( ms )
+	#define SLEEP( ms ) usleep( ms )
 #endif
 
 TEST( basic, setup_teardown )
@@ -362,7 +362,7 @@ TEST_F( trace, simple )
 
 	for( int i = 0; i < NUM_FRAMES; ++i )
 	{
-		for( int j = 0; j < ARRAY_LENGTH( expect ); ++j )
+		for( int j = 0; j < (int)ARRAY_LENGTH( expect ); ++j )
 		{
 			profsy_trace_entry* e = trace + ( i * 8 + j );
 			EXPECT_EQ( e->event, expect[j].event );
