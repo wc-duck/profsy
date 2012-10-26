@@ -387,6 +387,16 @@ int profsy_find_scope( const char* scope_path )
 	return (int)( e - ctx->entries );
 }
 
+profsy_scope_data* profsy_get_scope_data( int scope_id )
+{
+	profsy_ctx_t ctx = g_profsy_ctx;
+
+	if( ctx == 0x0 || (unsigned int)scope_id >= ctx->entries_max )
+		return 0x0;
+
+	return &ctx->entries[scope_id].data;
+}
+
 static void profsy_append_hierarchy( const profsy_entry* entry, const profsy_scope_data** child_scopes, unsigned int* num_child_scopes )
 {
 	child_scopes[(*num_child_scopes)++] = &entry->data;
@@ -408,4 +418,5 @@ void profsy_get_scope_hierarchy( const profsy_scope_data** child_scopes, unsigne
 
 	uint32_t curr_scope = 0;
 	profsy_append_hierarchy( ctx->root, child_scopes, &curr_scope );
+	child_scopes[curr_scope] = &ctx->overflow->data;
 }
