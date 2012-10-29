@@ -168,7 +168,7 @@ static void profsy_trace_add( profsy_ctx* ctx, uint64_t tick, uint16_t event, ui
 		return; // ... no active trace!
 
 	unsigned int next_trace = ctx->num_active_trace++;
-	if( next_trace > ctx->max_active_trace )
+	if( next_trace >= ctx->max_active_trace )
 		return; // ... no entries in trace-buffer left
 
 	profsy_trace_entry* te = ctx->active_trace + next_trace;
