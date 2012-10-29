@@ -60,3 +60,16 @@ local lib   = StaticLibrary( settings, 'profsy', objs )
 
 local test_objs  = Compile( settings, 'test/profsy_tests.cpp' )
 local tests      = Link( settings, 'profsy_tests', test_objs, lib )
+
+test_args = ""
+if ScriptArgs["test_filter"] then
+	test_args = " --gtest_filter=" .. ScriptArgs["test_filter"]
+end
+
+if family == "windows" then
+	AddJob( "test", "unittest", string.gsub( tests, "/", "\\" ) .. test_args, tests, tests )
+else
+	AddJob( "test", "unittest", "valgrind -v --leak-check=full --track-origins=yes " .. tests .. test_args, tests, tests )
+end
+
+DefaultTarget( tests )
