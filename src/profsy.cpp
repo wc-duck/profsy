@@ -172,9 +172,9 @@ static void profsy_trace_add( profsy_ctx* ctx, uint64_t tick, uint16_t event, ui
 		return; // ... no entries in trace-buffer left
 
 	profsy_trace_entry* te = ctx->active_trace + next_trace;
-	te->time_stamp = tick;
-	te->event      = event;
-	te->scope      = scope_id;
+	te->ts    = tick;
+	te->event = event;
+	te->scope = scope_id;
 }
 
 static void profsy_trace_close( profsy_ctx* ctx, uint64_t tick )
@@ -188,9 +188,9 @@ static void profsy_trace_close( profsy_ctx* ctx, uint64_t tick )
 	}
 
 	profsy_trace_entry* te = ctx->active_trace + next_trace;
-	te->time_stamp = tick;
-	te->event      = event;
-	te->scope      = (uint16_t)0;
+	te->ts    = tick;
+	te->event = event;
+	te->scope = (uint16_t)0;
 
 
 	ctx->active_trace = 0x0; // Trace is now done!

@@ -34,53 +34,76 @@
 	#define PROFSY_CUSTOM_TICK_FUNC profsy_get_tick
 #endif
 
-struct profsy_init_params
-{
-	unsigned int entries_max;
-};
-
 static const uint16_t PROFSY_TRACE_EVENT_ENTER    = 0;
 static const uint16_t PROFSY_TRACE_EVENT_LEAVE    = 1;
 static const uint16_t PROFSY_TRACE_EVENT_END      = 2;
 static const uint16_t PROFSY_TRACE_EVENT_OVERFLOW = 3;
 
-struct profsy_trace_entry
+/**
+ * parameters for initializing profsy
+ */
+struct profsy_init_params
 {
-	uint64_t time_stamp;
-	uint16_t event;
-	uint16_t scope;
+	unsigned int entries_max; //< maximum amount of entries that can be allocated by profsy, all other scopes will get registered as "overflow"
 };
 
+/**
+ * structure describing on entry in a stream of trace-events
+ */
+struct profsy_trace_entry
+{
+	uint64_t ts;    //< timestamp when event occurred.
+	uint16_t event; //< event that occured.
+	uint16_t scope; //< the scope that was involved in the event.
+};
+
+/**
+ * 
+ */
 typedef struct profsy_ctx* profsy_ctx_t;
 
+/**
+ * structure describing state of a scope that was measured between
+ * the last two profsy_swap_frame()
+ */
 struct profsy_scope_data
 {
-	const char* name;
-	uint64_t time;
-	uint64_t child_time;
-	uint64_t calls;
+	const char* name;    //< name of scope
+	uint64_t time;       //< time spent in scope
+	uint64_t child_time; //< time spent in child-scopes
+	uint64_t calls;      //< number of calls made to this scopes
 
 	// stable time
 	// variance
 
-	uint16_t depth;
-	uint16_t num_sub_scopes;
+	uint16_t depth;          // depth of scope in call-hierarchy
+	uint16_t num_sub_scopes; // number of child-scopes
 };
 
+/**
+ * calculate the amount of memory needed by profsy_init to initialize profsy.
+ * @param parmas initialization-parameters that will also be sent to profsy_init
+ * @return the amount of memory needed by profsy_init
+ */
 size_t profsy_calc_ctx_mem_usage( const profsy_init_params* params );
 
 /**
- *
+ * initializes profsy.
+ * @param params initialization-parameters
+ * @param mem a pointer to memory that will be used by profsy until profsy_shutdown().
+ *            this is expected to be greater or equal in size to the return-value of
+ *            profsy_calc_ctx_mem_usage() with the same init-params.
  */
 void profsy_init( const profsy_init_params* params, uint8_t* mem );
 
 /**
- *
+ * shutdown profsy and stop using its assigned memory
+ * @return the memory-buffer earlier used by profsy, should be the same as the mem-parameter to profsy_init()
  */
 uint8_t* profsy_shutdown();
 
 /**
- *
+ * @return a handle to the global profsy-context
  */
 profsy_ctx_t profsy_global_ctx();
 
@@ -97,39 +120,54 @@ int profsy_scope_enter( const char* name, uint64_t time );
 void profsy_scope_leave( int scope_id, uint64_t start, uint64_t end );
 
 /**
- *
+ * mark end of frame and start of the next one.
+ * in this call profsy will reset all counters, start/stop-tracing etc.
  */
 void profsy_swap_frame();
 
 /**
- * 
+ * tell profsy to start a trace at the next call to profsy_swap_frame()
+ * @note profsy will assume that the entries-buffer will be valid until profsy_is_tracing()
+ * returns false.
+ * @param entries buffer where trace-result will be reported. If buffer is filled, last element
+ *                will be marked as PROFSY_TRACE_EVENT_OVERFLOW
+ * @param num_entries size of entries-buffer
+ * @param frames_to_capture the number of profsy_swap_frame()-calls to capture trace for.
  */
 void profsy_trace_begin( profsy_trace_entry* entries, 
 						 unsigned int        num_entries, 
 						 unsigned int        frames_to_capture );
 
 /**
- *
+ * return the status of tracing.
+ * profsy will assume that the entries-buffer sent to profsy_trace_begin() is valid until this 
+ * return false.
+ * @return trace status
  */
 bool profsy_is_tracing();
 
 /**
- * max active scopes
+ * @return max active scopes
  */
 unsigned int profsy_max_active_scopes();
 
 /**
- * num active scopes
+ * @return num active scopes
  */
 unsigned int profsy_num_active_scopes();
 
 /**
- *
+ * return the index of a path with a specific path in the call hierarchy.
+ * @example profsy_find_scope( "" ) -> will return index of "root"
+ * @example profsy_find_scope( "scope1" ) -> will return index of "scope1"
+ * @example profsy_find_scope( "scope1/scope2" ) -> will return index of "scope2" if called under "scope1"
+ * @return the index of scope with path
  */
 int profsy_find_scope( const char* scope_path );
 
 /**
- *
+ * @param scope_id id of scope to return data for
+ * @return scope-data for scope with specific id
  */
 profsy_scope_data* profsy_get_scope_data( int scope_id );
 
@@ -154,13 +192,10 @@ struct __profsy_scope
 	~__profsy_scope() { profsy_scope_leave( scope_id, start, PROFSY_CUSTOM_TICK_FUNC() ); }
 };
 
-#define   PROFSY_JOIN_MACRO_TOKENS(a,b)     __PROFSY_JOIN_MACRO_TOKENS_DO1(a,b)
-#define __PROFSY_JOIN_MACRO_TOKENS_DO1(a,b) __PROFSY_JOIN_MACRO_TOKENS_DO2(a,b)
-#define __PROFSY_JOIN_MACRO_TOKENS_DO2(a,b) a##b
-
-#define PROFSY_UNIQUE_SYM( var_name ) PROFSY_JOIN_MACRO_TOKENS( var_name, __LINE__ )
-
-#define PROFSY_SCOPE( name ) __profsy_scope PROFSY_UNIQUE_SYM(__profile_scope_ )( name )
+/**
+ *
+ */
+#define PROFSY_SCOPE( name ) __profsy_scope __PROFSY_UNIQUE_SYM(__profile_scope_ )( name )
 
 #endif // defined(__cplusplus)
 

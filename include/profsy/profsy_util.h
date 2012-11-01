@@ -33,6 +33,18 @@
 static const unsigned int PROFSY_UTIL_DUMP_FORMAT_TEXT = 0;
 static const unsigned int PROFSY_UTIL_DUMP_FORMAT_CHROME = 1;
 
+static const unsigned int PROFSY_UTIL_DUMP_MODE_LINE = 0;
+static const unsigned int PROFSY_UTIL_DUMP_MODE_CHUNK = 1;
+
+/**
+ *
+ */
+void profsy_util_dump( profsy_trace_entry* entries, 
+					   unsigned int format, 
+					   unsigned int mode, 
+					   void ( callback* )( const uint8* data ), 
+					   void* userdata );
+
 /**
  *
  */

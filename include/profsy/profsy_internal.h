@@ -50,4 +50,10 @@ inline uint64_t profsy_get_tick()
 #endif
 }
 
+#define __PROFSY_JOIN_MACRO_TOKENS(a,b)     __PROFSY_JOIN_MACRO_TOKENS_DO1(a,b)
+#define __PROFSY_JOIN_MACRO_TOKENS_DO1(a,b) __PROFSY_JOIN_MACRO_TOKENS_DO2(a,b)
+#define __PROFSY_JOIN_MACRO_TOKENS_DO2(a,b) a##b
+
+#define __PROFSY_UNIQUE_SYM( var_name ) __PROFSY_JOIN_MACRO_TOKENS( var_name, __LINE__ )
+
 #endif // PROFSY_INTERNAL_H_INCLUDED

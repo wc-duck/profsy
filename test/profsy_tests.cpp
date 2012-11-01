@@ -370,8 +370,8 @@ TEST_F( trace, simple )
 	for( int i = 0; i < NUM_FRAMES; ++i )
 	{
 		profsy_trace_entry* e = trace + ( i * 8 + 0 );
-		EXPECT_GE( e->time_stamp, last_ts );
-		last_ts  = e->time_stamp;
+		EXPECT_GE( e->ts, last_ts );
+		last_ts  = e->ts;
 	}
 
 	uint16_t root_scope_id = (uint16_t)profsy_find_scope( "" );

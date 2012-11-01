@@ -18,7 +18,7 @@ static void profsy_util_dump_chrome( FILE* s, profsy_trace_entry* entries )
 					   "ph:\"%c\", "
 					   "name:\"%s\", "
 					   "args:{} },\n",
-				      e->time_stamp / 1000,
+				      e->ts / 1000,
 				      e->event == PROFSY_TRACE_EVENT_ENTER ? 'B' : 'E',
 				      data->name );
 		++e;
