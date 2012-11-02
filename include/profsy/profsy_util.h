@@ -30,28 +30,39 @@
 
 #include <stdio.h>
 
-static const unsigned int PROFSY_UTIL_DUMP_FORMAT_TEXT = 0;
-static const unsigned int PROFSY_UTIL_DUMP_FORMAT_CHROME = 1;
+static const unsigned int PROFSY_UTIL_DUMP_FORMAT_TEXT = 0;   //< a simple text-format to use in conjunction together with printf or similar
+static const unsigned int PROFSY_UTIL_DUMP_FORMAT_CHROME = 1; //< a json-based format to use togeher with chrome://tracing/ in googles chrome-browser
 
-static const unsigned int PROFSY_UTIL_DUMP_MODE_LINE = 0;
-static const unsigned int PROFSY_UTIL_DUMP_MODE_CHUNK = 1;
+static const unsigned int PROFSY_UTIL_DUMP_MODE_LINE = 0;  //< call dump-callback for each line in output.
+static const unsigned int PROFSY_UTIL_DUMP_MODE_CHUNK = 1; //< call dump-callback in larger chuncks.
 
 /**
- *
+ * dump profsy-trace buffer with custom callback.
+ * @param entries buffer to dump
+ * @param format dump-format to use ( PROFSY_UTIL_DUMP_FORMAT_* )
+ * @param mode dump-mode to use ( PROFSY_UTIL_DUMP_MODE_* )
+ * @param callback callback to use.
+ * @param userdata that will be sent callback at dump
  */
 void profsy_util_dump( profsy_trace_entry* entries, 
 					   unsigned int format, 
 					   unsigned int mode, 
-					   void ( callback* )( const uint8* data ), 
+					   void ( callback* )( const uint8* data, size_t byte_count, void* userdata ), 
 					   void* userdata );
 
 /**
- *
+ * dump profsy-trace buffer to stream.
+ * @param s stream to dump to
+ * @param entries buffer to dump
+ * @param format dump-format to use ( PROFSY_UTIL_DUMP_FORMAT_* )
  */
 void profsy_util_dump_to_stream( FILE* s, profsy_trace_entry* entries, unsigned int format );
 
 /**
- *
+ * dump profsy-trace buffer to stream.
+ * @param filename file to dump to
+ * @param entries buffer to dump
+ * @param format dump-format to use ( PROFSY_UTIL_DUMP_FORMAT_* )
  */
 void profsy_util_dump_to_file( const char* filename, profsy_trace_entry* entries, unsigned int format );
 

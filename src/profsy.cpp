@@ -259,7 +259,6 @@ int profsy_scope_enter( const char* name, uint64_t tick )
 	// ... add trace if tracing
 	profsy_trace_add( ctx, tick, PROFSY_TRACE_EVENT_ENTER, (uint16_t)scope_id );
 
-	// TODO: break of to function
 	return scope_id;
 }
 

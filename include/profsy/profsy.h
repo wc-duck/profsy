@@ -172,13 +172,13 @@ int profsy_find_scope( const char* scope_path );
 profsy_scope_data* profsy_get_scope_data( int scope_id );
 
 /**
- * ret hierachy, constant between calls if active scopes has not changed. Can only go up!
+ * used to generate a hierarchy-structure of the nodes for output. The result is a list that can be printed
+ * from top to bottom and get a call-graph of all registered scopes.
  */
 void profsy_get_scope_hierarchy( const profsy_scope_data** child_scopes, unsigned int num_child_scopes );
 
 #if defined(__cplusplus)
 struct __profsy_scope
-
 {
 	int      scope_id;
 	uint64_t start;
@@ -193,7 +193,8 @@ struct __profsy_scope
 };
 
 /**
- *
+ * macro to define a scope within c++-code.
+ * @param name name of scope as a constant string, profsy will assue that the name is valid until profsy_shutdown() is called.
  */
 #define PROFSY_SCOPE( name ) __profsy_scope __PROFSY_UNIQUE_SYM(__profile_scope_ )( name )
 
