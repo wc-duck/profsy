@@ -47,7 +47,7 @@ static const unsigned int PROFSY_UTIL_DUMP_MODE_CHUNK = 1; //< call dump-callbac
 void profsy_util_dump( profsy_trace_entry* entries, 
 					   unsigned int format, 
 					   unsigned int mode, 
-					   void ( callback* )( const uint8* data, size_t byte_count, void* userdata ), 
+					   void ( *callback )( const uint8_t* data, size_t byte_count, void* userdata ),
 					   void* userdata );
 
 /**
