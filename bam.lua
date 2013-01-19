@@ -26,40 +26,49 @@
 BUILD_PATH = "local"
 
 platform = "linux_x86_64"
+if family == "windows" then
+    platform = "winx64"
+end
 config   = "debug"
 
-local settings = NewSettings() -- {}
-
-settings.cc.includes:Add("include")
-if family ~= "windows" then
-	-- TODO: HAXXOR!!!
-	settings.link.libpath:Add( '../shmup/local/debug/linux_x86_64' )
-
-	settings.cc.flags:Add( "-Wconversion", "-Wextra", "-Wall", "-Werror", "-Wstrict-aliasing=2" )
-	settings.link.libs:Add( 'gtest', 'pthread', 'rt' )
-else
-	platform = "winx64"
-	
-	-- TODO: HAXXOR!!!
-	settings.link.flags:Add( "/NODEFAULTLIB:LIBCMT.LIB" );
-	
-	settings.link.libpath:Add("../wc_games/shmup/local/debug/winx64/")
-	settings.link.libs:Add( 'gtest' )
-	settings.cc.includes:Add("../wc_games/wc_engine/externals/gtest/include/")
-	settings.cc.defines:Add("_ITERATOR_DEBUG_LEVEL=0")
-end
+local settings = NewSettings()
+local gtest_settings = NewSettings()
 
 local output_path = PathJoin( BUILD_PATH, PathJoin( config, platform ) )
 local output_func = function(settings, path) return PathJoin(output_path, PathFilename(PathBase(path)) .. settings.config_ext) end
 settings.cc.Output = output_func
 settings.lib.Output = output_func
 settings.link.Output = output_func
+gtest_settings.cc.Output = output_func
+gtest_settings.lib.Output = output_func
+gtest_settings.link.Output = output_func
+
+settings.cc.includes:Add("include")
+settings.cc.includes:Add("test/gtest/include")
+gtest_settings.cc.includes:Add("test/gtest")
+gtest_settings.cc.includes:Add("test/gtest/include")
+
+if family ~= "windows" then
+	settings.cc.flags:Add( "-Wconversion", "-Wextra", "-Wall", "-Werror", "-Wstrict-aliasing=2" )
+	settings.link.libs:Add( 'gtest', 'pthread', 'rt' )
+else
+	settings.link.flags:Add( "/NODEFAULTLIB:LIBCMT.LIB" );
+	gtest_settings.link.flags:Add( "/NODEFAULTLIB:LIBCMT.LIB" );
+	settings.cc.defines:Add("_ITERATOR_DEBUG_LEVEL=0")
+	gtest_settings.cc.defines:Add("_ITERATOR_DEBUG_LEVEL=0")
+	
+	settings.link.libs:Add( 'gtest' )
+end
+
+settings.link.libpath:Add( 'local/' .. config .. '/' .. platform )
 
 local objs  = Compile( settings, 'src/profsy.cpp' )
 local lib   = StaticLibrary( settings, 'profsy', objs )
 
+local gtest = StaticLibrary( gtest_settings, 'gtest', Compile( gtest_settings, 'test/gtest/src/gtest-all.cc' ) )
+
 local test_objs  = Compile( settings, 'test/profsy_tests.cpp' )
-local tests      = Link( settings, 'profsy_tests', test_objs, lib )
+local tests      = Link( settings, 'profsy_tests', test_objs, gtest, lib )
 
 test_args = ""
 if ScriptArgs["test_filter"] then

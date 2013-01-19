@@ -27,12 +27,15 @@
 
 #include <profsy/profsy.h>
 
+#include <malloc.h>
+
 #define ARRAY_LENGTH(a) (sizeof(a)/sizeof(a[0]))
 
 #if defined( _MSC_VER )
 	#include <windows.h>
 	#define SLEEP( ms ) SleepEx( ms, false )
 #else
+	#include <unistd.h>
 	#define SLEEP( ms ) usleep( ms )
 #endif
 
@@ -96,10 +99,10 @@ typedef profsy_<256> profsy;
 TEST_F( profsy, active_scopes_at_init )
 {
 	// wcprof was setup with max ENTRIES_MAX scopes
-	EXPECT_EQ( 258, profsy_max_active_scopes() );
+	EXPECT_EQ( 258u, profsy_max_active_scopes() );
 
 	// check that only root- and overflow-scope is allocated
-	EXPECT_EQ( 2,           profsy_num_active_scopes() );
+	EXPECT_EQ( 2u,   profsy_num_active_scopes() );
 }
 
 TEST_F( profsy, simple_scope_alloc )
@@ -109,7 +112,7 @@ TEST_F( profsy, simple_scope_alloc )
 		SLEEP(1);
 	}
 	// check that only root, overflow-scope + new one is allocated
-	EXPECT_EQ( 3, profsy_num_active_scopes() );
+	EXPECT_EQ( 3u, profsy_num_active_scopes() );
 
 	// swap frame to calculate "stuff"
 	profsy_swap_frame();
