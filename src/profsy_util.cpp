@@ -1,29 +1,58 @@
 #include <profsy/profsy_util.h>
 
+#if defined(__GNUC__)
+#  include <unistd.h>
+#elif defined(_MSC_VER)
+#  include <process.h>
+#endif
+
+#define PROFSY_STRINGIFY( ... ) #__VA_ARGS__
+
+static const char PROFSY_CHROME_TRACE_ENTRY[] =
+	PROFSY_STRINGIFY( { "cat":"profsy",
+						"pid":%d,
+						"tid":"main",
+						"ts":%lu,
+						"ph":"%c",
+						"name":"%s",
+						"args":{} } );
+
+static int profsy_getpid()
+{
+#if defined(__GNUC__)
+	return getpid();
+#elif defined(_MSC_VER)
+	return _getpid();
+#else
+	return 0;
+#endif
+}
+
 static void profsy_util_dump_text( FILE* s, profsy_trace_entry* entries )
 {
 }
 
 static void profsy_util_dump_chrome( FILE* s, profsy_trace_entry* entries )
 {
-	fprintf( s, "[\n" );
+	int pid = profsy_getpid();
+
+	fprintf( s, "{ \"traceEvents\" : [\n" );
 
 	profsy_trace_entry* e = entries;
 	while( e->event < PROFSY_TRACE_EVENT_END )
 	{
 		profsy_scope_data* data = profsy_get_scope_data( (int)e->scope );
-
-		fprintf( s, "{ cat:\"profsy\", pid:0, tid:0,"
-					   "ts:%lu, "
-					   "ph:\"%c\", "
-					   "name:\"%s\", "
-					   "args:{} },\n",
-				      e->ts / 1000,
-				      e->event == PROFSY_TRACE_EVENT_ENTER ? 'B' : 'E',
-				      data->name );
+		fprintf( s, PROFSY_CHROME_TRACE_ENTRY,
+					pid,
+				    e->ts / 1000,
+				    e->event == PROFSY_TRACE_EVENT_ENTER ? 'B' : 'E',
+				    data->name );
 		++e;
+		if( e->event < PROFSY_TRACE_EVENT_END )
+			fprintf( s, ",\n" );
 	}
-	fprintf( s, "]\n" );
+
+	fprintf( s, "\n] }\n" );
 }
 
 void profsy_util_dump_to_stream( FILE* s, profsy_trace_entry* entries, unsigned int format )
