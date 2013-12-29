@@ -250,7 +250,6 @@ int profsy_scope_enter( const char* name, uint64_t tick )
 	}
 
 	// count stuff
-	// ASSERT( e != 0x0 );
 	if( e != ctx->overflow )
 		ctx->current = e;
 
@@ -412,8 +411,6 @@ void profsy_get_scope_hierarchy( const profsy_scope_data** child_scopes, unsigne
 	
 	if( ctx == 0x0 )
 		return;
-
-	// ASSERT( num_child_scopes >= g_profiler->entries.allocated_elements() );
 
 	uint32_t curr_scope = 0;
 	profsy_append_hierarchy( ctx->root, child_scopes, &curr_scope );
