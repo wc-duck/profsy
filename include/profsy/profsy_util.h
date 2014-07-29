@@ -1,5 +1,6 @@
 /*
-   DOC ME HERE ASWELL!.
+   Profsy - a simple "drop-in" profiler for realtime, frame-based, applications, in other words games!
+
    version 0.1, october, 2012
 
    Copyright (C) 2012- Fredrik Kihlander
