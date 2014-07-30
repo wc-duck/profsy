@@ -109,6 +109,7 @@ settings.cc.includes:Add("include")
 
 if family ~= "windows" then
     settings.cc.flags:Add( "-Wconversion", "-Wextra", "-Wall", "-Werror", "-Wstrict-aliasing=2" )
+    settings.link.libs:Add("rt")
 else
     settings.link.flags:Add( "/NODEFAULTLIB:LIBCMT.LIB" );
     settings.cc.defines:Add("_ITERATOR_DEBUG_LEVEL=0")
