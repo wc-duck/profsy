@@ -30,7 +30,11 @@
 
 #define ALIGN_UP( in, alignment ) (size_t)( ( (size_t)(in) + (size_t)(alignment) - 1 ) & ~( (size_t)(alignment) - 1 ) )
 
-const unsigned int PROFSY_BUILTIN_SCOPES = 2; // "root"- and "overflow"-scopes
+// TODO: currently thread one overflow scope per thread, do we need that or could we have one that is
+//       non threadsafe and registers "as good as it can"?
+const unsigned int PROFSY_BUILTIN_SCOPES = 2; // "<thread-name>"- and "overflow"-scopes
+
+// TODO: replace ptrs in profsy_entry and profsy_thread to uint16 to save lots of bytes!
 
 struct profsy_entry
 {
@@ -45,17 +49,26 @@ struct profsy_entry
 	profsy_entry* next_child;
 };
 
+
+struct profsy_thread
+{
+	const char*   name;
+	profsy_entry* root;     // root scope for this thread.
+	profsy_entry* overflow; // overflow scope for this thread.
+	profsy_entry* current;  // current scope for this thread.
+};
+
 struct profsy_ctx
 {
 	uint8_t* mem;
 
+	profsy_thread* threads;
+	int threads_used;
+	int threads_max;
+
 	profsy_entry* entries;
 	unsigned int  entries_used;
 	unsigned int  entries_max;
-
-	profsy_entry* root;
-	profsy_entry* overflow; // All scopes allocated if we run out of entries will get registered in this scope
-	profsy_entry* current;  // TODO: need to be per-thread later
 
 	uint64_t frame_start;
 
@@ -69,10 +82,10 @@ struct profsy_ctx
 
 static profsy_ctx* g_profsy_ctx;
 
-static profsy_entry* profsy_alloc_entry( profsy_ctx_t ctx, const char* name )
+static profsy_entry* profsy_alloc_entry( profsy_ctx_t ctx, int thread_id, const char* name )
 {
 	if( ctx->entries_used >= ctx->entries_max )
-		return ctx->overflow;
+		return ctx->threads[thread_id].overflow;
 	
 	profsy_entry* entry = ctx->entries + ctx->entries_used++;
 	
@@ -89,13 +102,32 @@ static profsy_entry* profsy_alloc_entry( profsy_ctx_t ctx, const char* name )
 	return entry;
 }
 
+static int profsy_alloc_thread_ctx( profsy_ctx_t ctx, const char* thread_name )
+{
+	// ... !!! some lock here !!! ...
+	int thread_id = ctx->threads_used++;
+	if( thread_id >= ctx->threads_max )
+		return -1;
+
+	// ... !!! embed some context id in threadid to be able to detect new ctx !!! ...
+	profsy_thread* thread = ctx->threads + thread_id;
+	thread->name     = thread_name;
+	thread->root     = profsy_alloc_entry( ctx, thread_id, thread_name );
+	thread->overflow = profsy_alloc_entry( ctx, thread_id, "overflow scope" );
+	thread->overflow->parent = thread->root;
+	thread->current = thread->root;
+	return thread_id;
+}
+
 size_t profsy_calc_ctx_mem_usage( const profsy_init_params* params )
 {
 	size_t needed_mem = 16; // we add 16 bytes to be able to 16-align it
 	
-	needed_mem += sizeof( profsy_ctx ); 
+	needed_mem += sizeof( profsy_ctx );
 	needed_mem  = ALIGN_UP( needed_mem, 16 );
-	needed_mem += ( params->entries_max + PROFSY_BUILTIN_SCOPES ) * sizeof( profsy_entry ); // + 2 for "root" and "overflow"
+	needed_mem += ( params->threads_max * sizeof( profsy_thread ) );
+	needed_mem  = ALIGN_UP( needed_mem, 16 );
+	needed_mem += ( params->entries_max + PROFSY_BUILTIN_SCOPES * params->threads_max ) * sizeof( profsy_entry ); // + 2 for "root" and "overflow"
 	
 	return needed_mem;
 }
@@ -108,25 +140,22 @@ void profsy_init( const profsy_init_params* params, uint8_t* in_mem )
 	uint8_t* mem = (uint8_t*)ALIGN_UP( in_mem, 16 );
 	
 	profsy_ctx* ctx = ( profsy_ctx* )mem;
-	mem += sizeof( profsy_ctx );
-	mem  = (uint8_t*)ALIGN_UP( mem, 16 );
-	
 	ctx->mem          = in_mem;
+
+	mem = (uint8_t*)ALIGN_UP( mem + sizeof( profsy_ctx ), 16 );
+	ctx->threads      = ( profsy_thread* )mem;
+	ctx->threads_used = 0;
+	ctx->threads_max  = params->threads_max;
+
+	mem = (uint8_t*)ALIGN_UP( mem + params->threads_max * sizeof( profsy_thread ), 16 );
 	ctx->entries      = ( profsy_entry* )mem;
 	ctx->entries_used = 0;
 	ctx->entries_max  = params->entries_max + PROFSY_BUILTIN_SCOPES;
 	
-	memset( ctx->entries, 0x0, sizeof( profsy_entry ) * ctx->entries_max );
+	memset( ctx->threads, 0x0, sizeof( profsy_thread ) * ctx->threads_max );
+	memset( ctx->entries, 0x0, sizeof( profsy_entry )  * ctx->entries_max );
 
-	// create root scope here!
-	profsy_entry* root = profsy_alloc_entry( ctx, "root" );
-	profsy_entry* over = profsy_alloc_entry( ctx, "overflow scope" );
-
-	over->parent  = root;
-
-	ctx->root     = root;
-	ctx->overflow = over;
-	ctx->current  = root;
+	profsy_alloc_thread_ctx( ctx, "main" );
 
 	ctx->active_trace       = 0x0;
 	ctx->trace_to_activate  = 0x0;
@@ -142,7 +171,6 @@ void profsy_init( const profsy_init_params* params, uint8_t* in_mem )
 
 uint8_t* profsy_shutdown()
 {
-	// ASSERT( g_profiler != 0x0, "trying to shutdown uninitialized profiler!" );
 	uint8_t* mem = g_profsy_ctx->mem;
 	g_profsy_ctx = 0x0;
 	return mem;
@@ -153,12 +181,32 @@ profsy_ctx_t profsy_global_ctx()
 	return g_profsy_ctx;
 }
 
+int profsy_create_thread_ctx( const char* thread_name )
+{
+	profsy_ctx_t ctx = g_profsy_ctx;
+	if( ctx == 0x0 )
+		return -1;
+
+	// ... !!! some lock here !!! ...
+	int thread_id = ctx->threads_used++;
+	if( thread_id >= ctx->threads_max )
+		return -1;
+
+	profsy_thread* thread = ctx->threads + thread_id;
+	thread->name     = thread_name;
+	thread->root     = profsy_alloc_entry( ctx, thread_id, thread_name );
+	thread->overflow = profsy_alloc_entry( ctx, thread_id, "overflow scope" );
+	thread->overflow->parent = thread->root;
+	thread->current = thread->root;
+	return thread_id;
+}
+
 // add functions to alloc scopes outside of macro
 
-static profsy_entry* profsy_get_child_scope( profsy_ctx* ctx, profsy_entry* parent, const char* name )
+static profsy_entry* profsy_get_child_scope( profsy_ctx* ctx, int thread_id, profsy_entry* parent, const char* name )
 {
 	profsy_entry* e = parent->children;
-	while( e > ctx->overflow && e->data.name != name )
+	while( e > ctx->threads[thread_id].overflow && e->data.name != name )
 		e = e->next_child;
 	return e;
 }
@@ -197,17 +245,18 @@ static void profsy_trace_close( profsy_ctx* ctx, uint64_t tick )
 	ctx->active_trace = 0x0; // Trace is now done!
 }
 
-int profsy_scope_enter( const char* name, uint64_t tick )
+int profsy_scope_enter_thread( int thread_id, const char* name, uint64_t tick )
 {
 	profsy_ctx_t ctx = g_profsy_ctx;
 
 	if( ctx == 0x0 )
 		return -1;
 
-	profsy_entry* current = ctx->current;
+	profsy_entry* current  = ctx->threads[thread_id].current;
+	profsy_entry* overflow = ctx->threads[thread_id].overflow;
 
 	// search for scope in current open scope
-	profsy_entry* e = profsy_get_child_scope( ctx, current, name );
+	profsy_entry* e = profsy_get_child_scope( ctx, thread_id, current, name );
 
 	// not found!
 	if( e == 0x0 )
@@ -215,11 +264,11 @@ int profsy_scope_enter( const char* name, uint64_t tick )
 		// TODO: take lock here if multiple threads are to be supported
 
 		// search again since some other thread might have created the scope!
-		e = profsy_get_child_scope( ctx, current, name );
+		e = profsy_get_child_scope( ctx, thread_id, current, name );
 		if( e == 0x0 )
 		{
 			// alloc scope and link
-			e = profsy_alloc_entry( ctx, name );
+			e = profsy_alloc_entry( ctx, thread_id, name );
 
 			// insert at tail to get order where scopes was registered.
 			if( current->children )
@@ -231,11 +280,11 @@ int profsy_scope_enter( const char* name, uint64_t tick )
 			}
 			else
 			{
-				if( current != ctx->overflow )
+				if( current != overflow )
 					current->children = e;
 			}
 
-			if( e != ctx->overflow )
+			if( e != overflow )
 			{
 				e->data.depth = (uint16_t)(current->data.depth + 1);
 				e->parent = current;
@@ -251,8 +300,8 @@ int profsy_scope_enter( const char* name, uint64_t tick )
 	}
 
 	// count stuff
-	if( e != ctx->overflow )
-		ctx->current = e;
+	if( e != overflow )
+		ctx->threads[thread_id].current = e;
 
 	int scope_id = (int)(e - ctx->entries);
 
@@ -262,7 +311,7 @@ int profsy_scope_enter( const char* name, uint64_t tick )
 	return scope_id;
 }
 
-void profsy_scope_leave( int scope_id, uint64_t start, uint64_t end )
+void profsy_scope_leave_thread( int thread_id, int scope_id, uint64_t start, uint64_t end )
 {
 	profsy_ctx_t ctx = g_profsy_ctx;
 
@@ -277,10 +326,22 @@ void profsy_scope_leave( int scope_id, uint64_t start, uint64_t end )
 	entry->time  += diff;
 	entry->parent->child_time += diff;
 
-	ctx->current = entry->parent;
+	ctx->threads[thread_id].current = entry->parent;
 
 	// ... add trace if tracing
 	profsy_trace_add( ctx, end, PROFSY_TRACE_EVENT_LEAVE, (uint16_t)scope_id );
+}
+
+int profsy_scope_enter( const char* name, uint64_t tick )
+{
+	int thread_id = 0; // fetch this from a tls.
+	return profsy_scope_enter_thread( thread_id, name, tick );
+}
+
+void profsy_scope_leave( int scope_id, uint64_t start, uint64_t end )
+{
+	int thread_id = 0; // fetch this from a tls.
+	profsy_scope_leave_thread( thread_id, scope_id, start, end );
 }
 
 void profsy_swap_frame()
@@ -290,8 +351,11 @@ void profsy_swap_frame()
 	if( ctx == 0x0 )
 		return;
 
-	ctx->root->calls = 1; // TODO: TOK-Hack root to be one call
-	ctx->root->time  = PROFSY_CUSTOM_TICK_FUNC() - ctx->frame_start; // TODO: TOK-Hack root to be one call
+	for( int i = 0; i < ctx->threads_used; ++i )
+	{
+		ctx->threads[i].root->calls = 1; // TODO: TOK-Hack root to be one call
+		ctx->threads[i].root->time  = PROFSY_CUSTOM_TICK_FUNC() - ctx->frame_start; // TODO: TOK-Hack root to be one call
+	}
 
 	for( unsigned int i = 0; i < ctx->entries_used; ++i )
 	{
@@ -356,13 +420,15 @@ int profsy_find_scope( const char* scope_path )
 	if( ctx == 0x0 )
 		return -1;
 
+	int thread_id = 0; // pass to function or name root-scope to <thread_name>?
+
 	if( *scope_path == '\0' )
-		return (int)( ctx->root - ctx->entries );
+		return (int)( ctx->threads[thread_id].root - ctx->entries );
 
 	const char* search = scope_path;
 	const char* end    = search + strlen( search );
 
-	profsy_entry* e = ctx->root;
+	profsy_entry* e = ctx->threads[thread_id].root;
 
 	while( search < end )
 	{
@@ -413,7 +479,14 @@ void profsy_get_scope_hierarchy( const profsy_scope_data** child_scopes, unsigne
 	if( ctx == 0x0 )
 		return;
 
-	uint32_t curr_scope = 0;
-	profsy_append_hierarchy( ctx->root, child_scopes, &curr_scope );
-	child_scopes[curr_scope] = &ctx->overflow->data;
+	uint32_t thread_start = 0;
+
+	for( int i = 0; i < ctx->threads_used; ++i )
+	{
+		uint32_t curr_scope = 0;
+		profsy_thread* thread = ctx->threads + i;
+		profsy_append_hierarchy( thread->root, child_scopes + thread_start, &curr_scope );
+		child_scopes[thread_start + curr_scope] = &thread->overflow->data;
+		thread_start += curr_scope + 1;
+	}
 }

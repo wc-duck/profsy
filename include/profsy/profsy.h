@@ -45,6 +45,7 @@ static const uint16_t PROFSY_TRACE_EVENT_OVERFLOW = 3;
  */
 struct profsy_init_params
 {
+	unsigned int threads_max; //< maximum amount of threads that can be registered to profsy.
 	unsigned int entries_max; //< maximum amount of entries that can be allocated by profsy, all other scopes will get registered as "overflow"
 };
 
@@ -53,9 +54,10 @@ struct profsy_init_params
  */
 struct profsy_trace_entry
 {
-	uint64_t ts;    //< timestamp when event occurred.
-	uint16_t event; //< event that occured.
-	uint16_t scope; //< the scope that was involved in the event.
+	uint64_t ts;     //< timestamp when event occurred.
+	uint16_t thread; //< id of thread that event occurred on.
+	uint16_t event;  //< event that occurred.
+	uint16_t scope;  //< the scope that was involved in the event.
 };
 
 /**
@@ -90,6 +92,9 @@ size_t profsy_calc_ctx_mem_usage( const profsy_init_params* params );
 
 /**
  * initializes profsy.
+ *
+ * TODO: write something about autocreation of "main" profsy thread!
+ *
  * @param params initialization-parameters
  * @param mem a pointer to memory that will be used by profsy until profsy_shutdown().
  *            this is expected to be greater or equal in size to the return-value of
@@ -108,7 +113,32 @@ uint8_t* profsy_shutdown();
  */
 profsy_ctx_t profsy_global_ctx();
 
+/**
+ *
+ */
+int profsy_create_thread_ctx( const char* thread_name );
+
+/**
+ *
+ */
+int profsy_set_thread_ctx( int thread_ctx );
+
+/**
+ * same as profsy_set_thread_ctx( profsy_create_thread_ctx( thread_name ) );
+ */
+int profsy_initialize_thread( const char* thread_name );
+
 // TODO: add functions to alloc scopes outside of macro
+
+/**
+ *
+ */
+int profsy_scope_enter_thread( int thread_id, const char* name, uint64_t time );
+
+/**
+ *
+ */
+void profsy_scope_leave_thread( int thread_id, int scope_id, uint64_t start, uint64_t end );
 
 /**
  *
@@ -159,6 +189,9 @@ unsigned int profsy_num_active_scopes();
 
 /**
  * return the index of a path with a specific path in the call hierarchy.
+ *
+ * TODO: this doc is now wrong!
+ *
  * @example profsy_find_scope( "" ) -> will return index of "root"
  * @example profsy_find_scope( "scope1" ) -> will return index of "scope1"
  * @example profsy_find_scope( "scope1/scope2" ) -> will return index of "scope2" if called under "scope1"

@@ -42,6 +42,7 @@
 TEST profsy_setup_teardown()
 {
 	profsy_init_params ip;
+	ip.threads_max = 16;
 	ip.entries_max = 256;
 
 	size_t needed_mem = profsy_calc_ctx_mem_usage( &ip );
@@ -82,6 +83,7 @@ struct profsy_setup
 	int setup( unsigned int max_entries )
 	{
 		profsy_init_params ip;
+		ip.threads_max = 16;
 		ip.entries_max = max_entries;
 
 		size_t needed_mem = profsy_calc_ctx_mem_usage( &ip );
@@ -135,14 +137,14 @@ TEST profsy_simple_scope_alloc()
 	const profsy_scope_data* root  = hierarchy[0];
 	const profsy_scope_data* scope = hierarchy[1];
 
-	ASSERT_STR_EQ( root->name,           "root" );
+	ASSERT_STR_EQ( root->name, "main" );
 	ASSERT      ( root->time > 0u );
 	ASSERT      ( root->child_time > 0u );
 	ASSERT_EQ   ( root->calls,          1u );
 	ASSERT_EQ   ( root->depth,          0u );
 	ASSERT_EQ   ( root->num_sub_scopes, 1u );
 
-	ASSERT_STR_EQ( scope->name,           "test-scope1" );
+	ASSERT_STR_EQ( scope->name, "test-scope1" );
 	ASSERT      ( scope->time > 0u );
 	ASSERT_EQ   ( scope->child_time,     0u );
 	ASSERT_EQ   ( scope->calls,          1u );
@@ -159,7 +161,7 @@ TEST profsy_deep_hierarchy()
 	ASSERT( s.mem != 0x0 );
 
 	static const char* SCOPE_NAMES[] = {
-		"root",
+		"main",
 		"test-scope1", "test-scope2", "test-scope3", "test-scope4",
 		"test-scope5", "test-scope6", "test-scope7", "test-scope8"
 	};
@@ -243,7 +245,7 @@ TEST profsy_two_paths()
 	const profsy_scope_data* s;
 
 	s = hierarchy[0];
-	ASSERT_STR_EQ( s->name,  "root" );
+	ASSERT_STR_EQ( s->name,  "main" );
 	ASSERT_EQ    ( s->depth, 0u );
 
 	s = hierarchy[1];
@@ -301,7 +303,7 @@ TEST profsy_out_of_resources_is_tracked()
 
 	const profsy_scope_data* s;
 	s = hierarchy[0];
-	ASSERT_STR_EQ( s->name,  "root" );
+	ASSERT_STR_EQ( s->name,  "main" );
 	ASSERT_EQ    ( s->calls, 1u );
 
 	s = hierarchy[1]; ASSERT_STR_EQ( s->name,  "s1" ); ASSERT_EQ( s->calls, 1u );
@@ -343,11 +345,11 @@ TEST profsy_multi_overflow()
 	profsy_get_scope_hierarchy( hierarchy, 16 );
 
 	const profsy_scope_data* s;
-	s = hierarchy[0]; ASSERT_STR_EQ( s->name,  "root" ); ASSERT_EQ( s->calls, 1u );
-	s = hierarchy[1]; ASSERT_STR_EQ( s->name,    "s1" ); ASSERT_EQ( s->calls, 2u );
-	s = hierarchy[2]; ASSERT_STR_EQ( s->name,    "s5" ); ASSERT_EQ( s->calls, 1u );
-	s = hierarchy[3]; ASSERT_STR_EQ( s->name,    "s2" ); ASSERT_EQ( s->calls, 2u );
-	s = hierarchy[5]; ASSERT_STR_EQ( s->name,    "s3" ); ASSERT_EQ( s->calls, 2u );
+	s = hierarchy[0]; ASSERT_STR_EQ( s->name, "main" ); ASSERT_EQ( s->calls, 1u );
+	s = hierarchy[1]; ASSERT_STR_EQ( s->name,   "s1" ); ASSERT_EQ( s->calls, 2u );
+	s = hierarchy[2]; ASSERT_STR_EQ( s->name,   "s5" ); ASSERT_EQ( s->calls, 1u );
+	s = hierarchy[3]; ASSERT_STR_EQ( s->name,   "s2" ); ASSERT_EQ( s->calls, 2u );
+	s = hierarchy[5]; ASSERT_STR_EQ( s->name,   "s3" ); ASSERT_EQ( s->calls, 2u );
 
 	ASSERT_EQ( hierarchy[4], hierarchy[6] );
 	s = hierarchy[4]; ASSERT_STR_EQ( s->name,  "overflow scope" ); ASSERT_EQ( s->calls, 2u ); // 2 calls, "s2->s5" and "s3->s5"
