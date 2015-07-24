@@ -145,14 +145,14 @@ void profsy_init( const profsy_init_params* params, uint8_t* in_mem )
 	mem = (uint8_t*)ALIGN_UP( mem + sizeof( profsy_ctx ), 16 );
 	ctx->threads      = ( profsy_thread* )mem;
 	ctx->threads_used = 0;
-	ctx->threads_max  = params->threads_max;
+	ctx->threads_max  = (int)params->threads_max;
 
 	mem = (uint8_t*)ALIGN_UP( mem + params->threads_max * sizeof( profsy_thread ), 16 );
 	ctx->entries      = ( profsy_entry* )mem;
 	ctx->entries_used = 0;
 	ctx->entries_max  = params->entries_max + PROFSY_BUILTIN_SCOPES;
 	
-	memset( ctx->threads, 0x0, sizeof( profsy_thread ) * ctx->threads_max );
+	memset( ctx->threads, 0x0, sizeof( profsy_thread ) * (size_t)ctx->threads_max );
 	memset( ctx->entries, 0x0, sizeof( profsy_entry )  * ctx->entries_max );
 
 	profsy_alloc_thread_ctx( ctx, "main" );
